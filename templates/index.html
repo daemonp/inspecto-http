@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Debug Info Viewer</title>
+    <!-- TODO: For production, install Tailwind CSS as a PostCSS plugin or use the Tailwind CLI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        /* Custom scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen" x-data="debugApp()" x-init="init()">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold mb-8 text-center text-gray-800">Advanced Debug Info Viewer</h1>
+        
+        <!-- Search Bar -->
+        <div class="mb-6">
+            <input 
+                type="text" 
+                x-model="searchQuery" 
+                @input="filterData()"
+                placeholder="Search all debug information..." 
+                class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+        </div>
+
+        <!-- Tabs -->
+        <div class="mb-6 flex flex-wrap justify-center">
+            <template x-for="tab in tabs" :key="tab">
+                <button 
+                    @click="activeTab = tab; filterData();" 
+                    :class="{'bg-blue-500 text-white': activeTab === tab, 'bg-gray-200 text-gray-700': activeTab !== tab}"
+                    class="px-4 py-2 rounded-lg font-medium m-1"
+                    x-text="tab"
+                ></button>
+            </template>
+        </div>
+
+        <!-- Data Display -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <template x-if="filteredData.length === 0">
+                <p class="text-gray-500 text-center">No results found.</p>
+            </template>
+            <div class="overflow-auto max-h-[calc(100vh-300px)]">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-4 py-2 text-left text-gray-600">Key</th>
+                            <th class="px-4 py-2 text-left text-gray-600">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, index) in filteredData" :key="index">
+                            <tr class="border-t border-gray-200">
+                                <td class="px-4 py-2 font-medium text-gray-700" x-text="item.key"></td>
+                                <td class="px-4 py-2 text-gray-800">
+                                    <div x-show="!item.expanded" @click="item.expanded = true" class="cursor-pointer">
+                                        <span x-text="truncateValue(item.value)"></span>
+                                        <span x-show="item.value.length > 50" class="text-blue-500 ml-2">Show more</span>
+                                    </div>
+                                    <div x-show="item.expanded" @click="item.expanded = false" class="cursor-pointer">
+                                        <span x-text="item.value"></span>
+                                        <span class="text-blue-500 ml-2">Show less</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function debugApp() {
+            return {
+                debugData: {},
+                searchQuery: '',
+                activeTab: 'All',
+                filteredData: [],
+                tabs: ['All', 'Headers', 'Environment', 'Request', 'Cloudflare', 'Traefik', 'Remote', 'Server', 'TLS'],
+
+                init() {
+                    this.fetchDebugInfo();
+                    setInterval(() => this.fetchDebugInfo(), 5000);
+                },
+
+                fetchDebugInfo() {
+                    fetch('/api/debug-info')
+                        .then(response => response.json())
+                        .then(data => {
+                            this.debugData = this.preprocessData(data);
+                            this.filterData();
+                        })
+                        .catch(error => console.error('Error fetching debug info:', error));
+                },
+
+                preprocessData(data) {
+                    const processed = {};
+                    for (const [category, items] of Object.entries(data)) {
+                        processed[category.toLowerCase()] = Object.entries(items).map(([key, value]) => ({
+                            key,
+                            value: value.toString(),
+                            expanded: false
+                        }));
+                    }
+                    return processed;
+                },
+
+                filterData() {
+                    const query = this.searchQuery.toLowerCase();
+                    if (this.activeTab === 'All') {
+                        this.filteredData = Object.values(this.debugData).flat().filter(item =>
+                            item.key.toLowerCase().includes(query) || item.value.toLowerCase().includes(query)
+                        );
+                    } else {
+                        const tabData = this.debugData[this.activeTab.toLowerCase()] || [];
+                        this.filteredData = tabData.filter(item =>
+                            item.key.toLowerCase().includes(query) || item.value.toLowerCase().includes(query)
+                        );
+                    }
+                },
+
+                truncateValue(value) {
+                    return value.length > 50 ? value.slice(0, 50) + '...' : value;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
