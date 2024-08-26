@@ -95,7 +95,7 @@
                 searchQuery: '',
                 activeTab: 'All',
                 filteredData: [],
-                tabs: ['All', 'Headers', 'Environment', 'Request', 'Cloudflare', 'Traefik', 'Remote', 'Server', 'TLS'],
+                tabs: ['All', 'Headers', 'Environment', 'Request', 'Cloudflare', 'Traefik', 'Remote', 'Server', 'TLS', 'Cookies'],
 
                 init() {
                     this.fetchDebugInfo();
@@ -115,13 +115,25 @@
                 preprocessData(data) {
                     const processed = {};
                     for (const [category, items] of Object.entries(data)) {
-                        processed[category.toLowerCase()] = Object.entries(items).map(([key, value]) => ({
-                            key,
-                            value: value.toString(),
-                            expanded: false
-                        }));
+                        if (category === 'cookies') {
+                            processed[category] = this.processCookies(items);
+                        } else {
+                            processed[category] = Object.entries(items).map(([key, value]) => ({
+                                key,
+                                value: value.toString(),
+                                expanded: false
+                            }));
+                        }
                     }
                     return processed;
+                },
+
+                processCookies(cookies) {
+                    return cookies.map(cookie => ({
+                        key: cookie.Name,
+                        value: JSON.stringify(cookie, null, 2),
+                        expanded: false
+                    }));
                 },
 
                 filterData() {

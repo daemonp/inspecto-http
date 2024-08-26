@@ -5,12 +5,14 @@ import (
 	"crypto/tls"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 //go:embed templates
@@ -41,14 +43,15 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 
 func handleDebugInfo(w http.ResponseWriter, r *http.Request) {
 	debugInfo := map[string]interface{}{
-		"headers":    getHeaders(r),
+		"headers":     getHeaders(r),
 		"environment": getEnv(),
-		"request":    getRequestInfo(r),
-		"cloudflare": getCloudflareInfo(r),
-		"traefik":    getTraefikInfo(r),
-		"remoteInfo": getRemoteInfo(r),
-		"serverInfo": getServerInfo(r),
-		"tls":        getTLSInfo(r),
+		"request":     getRequestInfo(r),
+		"cloudflare":  getCloudflareInfo(r),
+		"traefik":     getTraefikInfo(r),
+		"remoteInfo":  getRemoteInfo(r),
+		"serverInfo":  getServerInfo(r),
+		"tls":         getTLSInfo(r),
+		"cookies":     getCookieInfo(r),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -58,7 +61,9 @@ func handleDebugInfo(w http.ResponseWriter, r *http.Request) {
 func getHeaders(r *http.Request) map[string]string {
 	headers := make(map[string]string)
 	for name, values := range r.Header {
-		headers[name] = strings.Join(values, ", ")
+		if name != "Cookie" { 
+			headers[name] = strings.Join(values, ", ")
+		}
 	}
 	return headers
 }
@@ -162,5 +167,56 @@ func getTLSVersion(version uint16) string {
 		return "TLS 1.3"
 	default:
 		return "Unknown"
+	}
+}
+
+func getCookieInfo(r *http.Request) []map[string]string {
+	cookies := r.Cookies()
+	cookieInfo := make([]map[string]string, len(cookies))
+
+	sensitivePattern := regexp.MustCompile(`(?i)(token|session|auth|key|secret|password|credential)`)
+
+	for i, cookie := range cookies {
+		cookieData := map[string]string{
+			"Name":     cookie.Name,
+			"Value":    cookie.Value,
+			"Path":     cookie.Path,
+			"Domain":   cookie.Domain,
+			"Expires":  formatTime(cookie.Expires),
+			"MaxAge":   fmt.Sprintf("%d", cookie.MaxAge),
+			"Secure":   fmt.Sprintf("%t", cookie.Secure),
+			"HttpOnly": fmt.Sprintf("%t", cookie.HttpOnly),
+			"SameSite": formatSameSite(cookie.SameSite),
+		}
+
+		if sensitivePattern.MatchString(cookie.Name) {
+			cookieData["Value"] = maskSensitiveValue(cookie.Value)
+		}
+
+		cookieInfo[i] = cookieData
+	}
+
+	return cookieInfo
+}
+
+func formatTime(t time.Time) string {
+	if t.IsZero() {
+		return "Not set"
+	}
+	return t.Format(time.RFC3339)
+}
+
+func formatSameSite(s http.SameSite) string {
+	switch s {
+	case http.SameSiteDefaultMode:
+		return "Default"
+	case http.SameSiteLaxMode:
+		return "Lax"
+	case http.SameSiteStrictMode:
+		return "Strict"
+	case http.SameSiteNoneMode:
+		return "None"
+	default:
+		return "Not set"
 	}
 }
