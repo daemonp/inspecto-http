@@ -12,3 +12,4 @@ HTTP headers, environment variables, and server configurations.
 - Organized into categories for easy navigation
 - Responsive design for both desktop and mobile use
 
+
