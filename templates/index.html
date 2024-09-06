@@ -73,10 +73,10 @@
                                 <td class="px-4 py-2 text-gray-800">
                                     <div x-show="!item.expanded" @click="item.expanded = true" class="cursor-pointer">
                                         <span x-text="truncateValue(item.value)"></span>
-                                        <span x-show="item.value.length > 50" class="text-blue-500 ml-2">Show more</span>
+                                        <span x-show="item.value.length > 100" class="text-blue-500 ml-2">Show more</span>
                                     </div>
                                     <div x-show="item.expanded" @click="item.expanded = false" class="cursor-pointer">
-                                        <span x-text="item.value"></span>
+                                        <pre class="whitespace-pre-wrap break-words"><code x-text="item.value"></code></pre>
                                         <span class="text-blue-500 ml-2">Show less</span>
                                     </div>
                                 </td>
@@ -117,6 +117,12 @@
                     for (const [category, items] of Object.entries(data)) {
                         if (category === 'cookies') {
                             processed[category] = this.processCookies(items);
+                        } else if (category === 'cloudflare') {
+                            processed[category] = Object.entries(items).map(([key, value]) => ({
+                                key,
+                                value: typeof value === 'object' ? JSON.stringify(value, null, 2) : value.toString(),
+                                expanded: false
+                            }));
                         } else {
                             processed[category] = Object.entries(items).map(([key, value]) => ({
                                 key,
@@ -151,7 +157,7 @@
                 },
 
                 truncateValue(value) {
-                    return value.length > 50 ? value.slice(0, 50) + '...' : value;
+                    return value.length > 100 ? value.slice(0, 100) + '...' : value;
                 }
             }
         }
