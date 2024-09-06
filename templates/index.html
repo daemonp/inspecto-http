@@ -24,21 +24,38 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
+        .copy-button {
+            opacity: 0;
+            transition: opacity 0.3s, background-color 0.3s;
+        }
+        tr:hover .copy-button {
+            opacity: 1;
+        }
+        .copy-button.copied {
+            background-color: #4CAF50;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen" x-data="debugApp()" x-init="init()">
     <div class="container mx-auto px-4 py-8">
         <h1 class="text-4xl font-bold mb-8 text-center text-gray-800">Advanced Debug Info Viewer</h1>
         
-        <!-- Search Bar -->
-        <div class="mb-6">
+        <!-- Search Bar and Refresh Button -->
+        <div class="mb-6 flex items-center">
             <input 
                 type="text" 
                 x-model="searchQuery" 
                 @input="filterData()"
                 placeholder="Search all debug information..." 
-                class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="flex-grow px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
+            <button 
+                @click="fetchDebugInfo()"
+                class="ml-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                Refresh
+            </button>
         </div>
 
         <!-- Tabs -->
@@ -70,15 +87,21 @@
                         <template x-for="(item, index) in filteredData" :key="index">
                             <tr class="border-t border-gray-200">
                                 <td class="px-4 py-2 font-medium text-gray-700" x-text="item.key"></td>
-                                <td class="px-4 py-2 text-gray-800">
+                                <td class="px-4 py-2 text-gray-800 relative">
                                     <div x-show="!item.expanded" @click="item.expanded = true" class="cursor-pointer">
                                         <span x-text="truncateValue(item.value)"></span>
                                         <span x-show="item.value.length > 100" class="text-blue-500 ml-2">Show more</span>
                                     </div>
                                     <div x-show="item.expanded" @click="item.expanded = false" class="cursor-pointer">
-                                        <pre class="whitespace-pre-wrap break-words"><code x-text="item.value"></code></pre>
+                                        <pre class="whitespace-pre-wrap break-words"><code x-text="formatValue(item.value)"></code></pre>
                                         <span class="text-blue-500 ml-2">Show less</span>
                                     </div>
+                                    <button 
+                                        @click="copyToClipboard($event, item.value)"
+                                        class="copy-button absolute top-2 right-2 px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                    >
+                                        Copy
+                                    </button>
                                 </td>
                             </tr>
                         </template>
@@ -158,6 +181,29 @@
 
                 truncateValue(value) {
                     return value.length > 100 ? value.slice(0, 100) + '...' : value;
+                },
+
+                formatValue(value) {
+                    try {
+                        const parsed = JSON.parse(value);
+                        return JSON.stringify(parsed, null, 2);
+                    } catch (e) {
+                        return value;
+                    }
+                },
+
+                copyToClipboard(event, text) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        const button = event.target;
+                        button.classList.add('copied');
+                        button.textContent = 'Copied!';
+                        setTimeout(() => {
+                            button.classList.remove('copied');
+                            button.textContent = 'Copy';
+                        }, 1500);
+                    }).catch(err => {
+                        console.error('Failed to copy text: ', err);
+                    });
                 }
             }
         }

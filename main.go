@@ -104,9 +104,13 @@ func getRequestInfo(r *http.Request) map[string]string {
 
 func getCloudflareInfo(r *http.Request) map[string]string {
 	cfHeaders := make(map[string]string)
+	cfPrefixes := []string{"Cf-", "X-Cloudflare-"}
 	for name, values := range r.Header {
-		if strings.HasPrefix(name, "Cf-") {
-			cfHeaders[name] = strings.Join(values, ", ")
+		for _, prefix := range cfPrefixes {
+			if strings.HasPrefix(name, prefix) {
+				cfHeaders[name] = strings.Join(values, ", ")
+				break
+			}
 		}
 	}
 	return cfHeaders
